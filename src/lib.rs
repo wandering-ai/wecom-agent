@@ -1,5 +1,5 @@
 use reqwest;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::error::Error;
 
 #[derive(Debug, Clone)]
@@ -16,6 +16,40 @@ struct AccessTokenResponse {
     errmsg: String,
     access_token: String,
     expires_in: usize,
+}
+
+// 应用消息发送结果
+#[derive(Deserialize)]
+pub struct MsgSendResponse {
+    errcode: i64,
+    errmsg: String,
+    invaliduser: String,
+    invalidparty: String,
+    invalidtag: String,
+    unlicenseduser: String,
+    msgid: String,
+    response_code: String,
+}
+
+// 文本消息
+#[derive(Debug, Serialize, PartialEq)]
+pub struct TextMsgContent {
+    pub content: String,
+}
+
+// 文本消息结构体
+#[derive(Debug, Serialize, PartialEq)]
+pub struct TextMsg {
+    pub touser: String,
+    pub toparty: String,
+    pub totag: String,
+    pub msgtype: String,
+    pub agentid: usize,
+    pub text: TextMsgContent,
+    pub safe: i64,
+    pub enable_id_trans: i64,
+    pub enable_duplicate_check: i64,
+    pub duplicate_check_interval: usize,
 }
 
 impl WecomAgent {
@@ -56,5 +90,25 @@ impl WecomAgent {
         }
         self.access_token = Some(response.access_token);
         Ok(())
+    }
+
+    /// 发送文本消息
+    pub async fn send_text(&self, msg: &TextMsg) -> Result<MsgSendResponse, Box<dyn Error>> {
+        if self.access_token.is_none() {
+            return Err("Can not send message. Access token is None.".into());
+        }
+        let url = format!(
+            "https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token={}",
+            self.access_token.as_ref().unwrap()
+        );
+        let response = self
+            .client
+            .post(&url)
+            .json(msg)
+            .send()
+            .await?
+            .json::<MsgSendResponse>()
+            .await?;
+        Ok(response)
     }
 }
