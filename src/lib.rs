@@ -24,9 +24,9 @@ pub struct MsgSendResponse {
     errcode: i64,
     errmsg: String,
     invaliduser: Option<String>,
-    invalidparty: String,
-    invalidtag: String,
-    unlicenseduser: String,
+    invalidparty: Option<String>,
+    invalidtag: Option<String>,
+    unlicenseduser: Option<String>,
     msgid: String,
     response_code: String,
 }
