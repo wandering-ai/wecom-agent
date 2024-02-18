@@ -1,6 +1,6 @@
 [package]
 name = "wecom-agent"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "企业微信API的轻封装，让消息发送更加便捷。"
 license = "MIT OR Apache-2.0"
@@ -10,3 +10,5 @@ keywords = ["wecom"]
 readme = "README.md"
 
 [dependencies]
+reqwest = { version = "0.11.24", features = ["json"] }
+serde = { version = "1.0.196", features = ["derive"] }
