@@ -28,7 +28,7 @@ pub struct MsgSendResponse {
     invalidtag: Option<String>,
     unlicenseduser: Option<String>,
     msgid: String,
-    response_code: String,
+    response_code: Option<String>,
 }
 
 // 文本消息
