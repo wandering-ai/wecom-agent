@@ -23,7 +23,7 @@ struct AccessTokenResponse {
 pub struct MsgSendResponse {
     errcode: i64,
     errmsg: String,
-    invaliduser: String,
+    invaliduser: Option<String>,
     invalidparty: String,
     invalidtag: String,
     unlicenseduser: String,
