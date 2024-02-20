@@ -31,6 +31,20 @@ pub struct MsgSendResponse {
     response_code: Option<String>,
 }
 
+impl MsgSendResponse {
+    pub fn is_error(&self) -> bool {
+        self.errcode != 0
+    }
+
+    pub fn error_code(&self) -> i64 {
+        self.errcode
+    }
+
+    pub fn error_msg(&self) -> &str {
+        &self.errmsg
+    }
+}
+
 // 文本消息
 #[derive(Debug, Serialize, PartialEq)]
 pub struct TextMsgContent {
