@@ -1,21 +1,14 @@
-use reqwest;
+mod error;
+
 use serde::{Deserialize, Serialize};
-use std::error::Error;
+use std::error::Error as StdError;
 
-#[derive(Debug, Clone)]
-pub struct WecomAgent {
-    corpid: String,
-    secret: String,
-    access_token: Option<String>,
-    client: reqwest::Client,
-}
-
+// 获取Access Token时的返回结果
 #[derive(Deserialize)]
 struct AccessTokenResponse {
     errcode: i64,
     errmsg: String,
     access_token: String,
-    expires_in: usize,
 }
 
 // 应用消息发送结果
@@ -45,12 +38,6 @@ impl MsgSendResponse {
     }
 }
 
-// 文本消息
-#[derive(Debug, Serialize, PartialEq)]
-pub struct TextMsgContent {
-    pub content: String,
-}
-
 // 文本消息结构体
 #[derive(Debug, Serialize, PartialEq)]
 pub struct TextMsg {
@@ -66,54 +53,70 @@ pub struct TextMsg {
     pub duplicate_check_interval: usize,
 }
 
-impl WecomAgent {
-    /// 创建一个Agent。注意默认access_token为空，需要更新后使用。
-    pub fn new(corpid: &str, secret: &str) -> Self {
-        Self {
-            corpid: String::from(corpid),
-            secret: String::from(secret),
-            access_token: None,
-            client: reqwest::Client::new(),
-        }
-    }
+// 文本消息
+#[derive(Debug, Serialize, PartialEq)]
+pub struct TextMsgContent {
+    pub content: String,
+}
 
-    /// 检查access_token是否初始化。
-    pub fn token_is_some(&self) -> bool {
-        self.access_token.is_some()
+// 获取AccessToken的方法
+async fn get_access_token(
+    corpid: &str,
+    secret: &str,
+) -> Result<String, Box<dyn StdError + Send + Sync>> {
+    let url = format!(
+        "https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid={corpid}&corpsecret={secret}",
+    );
+    let response = reqwest::get(url)
+        .await?
+        .json::<AccessTokenResponse>()
+        .await?;
+    match response.errcode {
+        0 => Ok(response.access_token),
+        _ => Err(Box::<error::Error>::new(error::Error::new(
+            response.errcode,
+            response.errmsg,
+        ))),
+    }
+}
+
+// 承载相关方法的结构体
+#[derive(Debug, Clone)]
+pub struct WecomAgent {
+    corpid: String,
+    secret: String,
+    access_token: String,
+    client: reqwest::Client,
+}
+
+impl WecomAgent {
+    /// 创建一个Agent。
+    pub async fn new(corpid: &str, secret: &str) -> Result<Self, Box<dyn StdError>> {
+        match get_access_token(corpid, secret).await {
+            Ok(token) => Ok(Self {
+                corpid: String::from(corpid),
+                secret: String::from(secret),
+                access_token: token,
+                client: reqwest::Client::new(),
+            }),
+            Err(e) => Err(e),
+        }
     }
 
     /// 更新access_token。
-    pub async fn update_token(&mut self) -> Result<(), Box<dyn Error>> {
-        let url = format!(
-            "https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid={}&corpsecret={}",
-            &self.corpid, &self.secret
-        );
-        let response = self
-            .client
-            .get(url)
-            .send()
-            .await?
-            .json::<AccessTokenResponse>()
-            .await?;
-        if response.errcode != 0 {
-            return Err(format!(
-                "Failed to fetch access token. Error code: {}, {}",
-                response.errcode, response.errmsg,
-            )
-            .into());
-        }
-        self.access_token = Some(response.access_token);
+    pub async fn update_token(&mut self) -> Result<(), Box<dyn StdError + Send + Sync>> {
+        self.access_token = get_access_token(&self.corpid, &self.secret).await?;
         Ok(())
     }
 
     /// 发送文本消息
-    pub async fn send_text(&self, msg: &TextMsg) -> Result<MsgSendResponse, Box<dyn Error>> {
-        if self.access_token.is_none() {
-            return Err("Can not send message. Access token is None.".into());
-        }
+    pub async fn send_text(
+        &self,
+        msg: &TextMsg,
+    ) -> Result<MsgSendResponse, Box<dyn StdError + Send + Sync>> {
         let url = format!(
             "https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token={}",
-            self.access_token.as_ref().unwrap()
+            &self.access_token
         );
         let response = self
             .client
