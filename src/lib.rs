@@ -1,4 +1,5 @@
 mod error;
+pub mod message;
 
 use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
@@ -36,27 +37,6 @@ impl MsgSendResponse {
     pub fn error_msg(&self) -> &str {
         &self.errmsg
     }
-}
-
-// 文本消息结构体
-#[derive(Debug, Serialize, PartialEq)]
-pub struct TextMsg {
-    pub touser: String,
-    pub toparty: String,
-    pub totag: String,
-    pub msgtype: String,
-    pub agentid: usize,
-    pub text: TextMsgContent,
-    pub safe: i64,
-    pub enable_id_trans: i64,
-    pub enable_duplicate_check: i64,
-    pub duplicate_check_interval: usize,
-}
-
-// 文本消息
-#[derive(Debug, Serialize, PartialEq)]
-pub struct TextMsgContent {
-    pub content: String,
 }
 
 // 获取AccessToken的方法
@@ -109,11 +89,11 @@ impl WecomAgent {
         Ok(())
     }
 
-    /// 发送文本消息
-    pub async fn send_text(
-        &self,
-        msg: &TextMsg,
-    ) -> Result<MsgSendResponse, Box<dyn StdError + Send + Sync>> {
+    /// 发送应用消息
+    pub async fn send<T>(&self, msg: T) -> Result<MsgSendResponse, Box<dyn StdError + Send + Sync>>
+    where
+        T: Serialize,
+    {
         let url = format!(
             "https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token={}",
             &self.access_token
@@ -121,7 +101,7 @@ impl WecomAgent {
         let response = self
             .client
             .post(&url)
-            .json(msg)
+            .json(&msg)
             .send()
             .await?
             .json::<MsgSendResponse>()
