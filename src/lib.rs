@@ -1,15 +1,83 @@
+//! # wecom-agent
+//!
+//! `wecom-agent`封装了企业微信API的消息发送功能。
+//!
+//! ## 使用方法
+//! ```rust
+//! use wecom_agent::{
+//!     message::{MessageBuilder, Text},
+//!     MsgSendResponse, WecomAgent,
+//! };
+//! async fn example() {
+//!     let content = Text::new("Hello from Wandering AI!".to_string());
+//!     let msg = MessageBuilder::default()
+//!         .to_users(vec!["robin", "tom"])
+//!         .from_agent(42)
+//!         .build(content)
+//!         .expect("Massage should be built");
+//!     let handle = tokio::spawn(async move {
+//!         let wecom_agent = WecomAgent::new("your_corpid", "your_secret")
+//!             .await
+//!             .expect("wecom agent should be initialized.");
+//!         let response = wecom_agent.send(msg).await;
+//!     });
+//! }
+//! ```
+
 mod error;
 pub mod message;
 
 use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 
-// 获取Access Token时的返回结果
-#[derive(Deserialize)]
-struct AccessTokenResponse {
-    errcode: i64,
-    errmsg: String,
+/// 企业微信API的轻量封装
+#[derive(Debug, Clone)]
+pub struct WecomAgent {
+    corpid: String,
+    secret: String,
     access_token: String,
+    client: reqwest::Client,
+}
+
+impl WecomAgent {
+    /// 创建一个Agent。
+    pub async fn new(corpid: &str, secret: &str) -> Result<Self, Box<dyn StdError>> {
+        match get_access_token(corpid, secret).await {
+            Ok(token) => Ok(Self {
+                corpid: String::from(corpid),
+                secret: String::from(secret),
+                access_token: token,
+                client: reqwest::Client::new(),
+            }),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// 更新access_token。
+    pub async fn update_token(&mut self) -> Result<(), Box<dyn StdError + Send + Sync>> {
+        self.access_token = get_access_token(&self.corpid, &self.secret).await?;
+        Ok(())
+    }
+
+    /// 发送应用消息
+    pub async fn send<T>(&self, msg: T) -> Result<MsgSendResponse, Box<dyn StdError + Send + Sync>>
+    where
+        T: Serialize,
+    {
+        let url = format!(
+            "https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token={}",
+            &self.access_token
+        );
+        let response = self
+            .client
+            .post(&url)
+            .json(&msg)
+            .send()
+            .await?
+            .json::<MsgSendResponse>()
+            .await?;
+        Ok(response)
+    }
 }
 
 // 应用消息发送结果
@@ -60,52 +128,10 @@ async fn get_access_token(
     }
 }
 
-// 承载相关方法的结构体
-#[derive(Debug, Clone)]
-pub struct WecomAgent {
-    corpid: String,
-    secret: String,
+// 获取Access Token时的返回结果
+#[derive(Deserialize)]
+struct AccessTokenResponse {
+    errcode: i64,
+    errmsg: String,
     access_token: String,
-    client: reqwest::Client,
-}
-
-impl WecomAgent {
-    /// 创建一个Agent。
-    pub async fn new(corpid: &str, secret: &str) -> Result<Self, Box<dyn StdError>> {
-        match get_access_token(corpid, secret).await {
-            Ok(token) => Ok(Self {
-                corpid: String::from(corpid),
-                secret: String::from(secret),
-                access_token: token,
-                client: reqwest::Client::new(),
-            }),
-            Err(e) => Err(e),
-        }
-    }
-
-    /// 更新access_token。
-    pub async fn update_token(&mut self) -> Result<(), Box<dyn StdError + Send + Sync>> {
-        self.access_token = get_access_token(&self.corpid, &self.secret).await?;
-        Ok(())
-    }
-
-    /// 发送应用消息
-    pub async fn send<T>(&self, msg: T) -> Result<MsgSendResponse, Box<dyn StdError + Send + Sync>>
-    where
-        T: Serialize,
-    {
-        let url = format!(
-            "https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token={}",
-            &self.access_token
-        );
-        let response = self
-            .client
-            .post(&url)
-            .json(&msg)
-            .send()
-            .await?
-            .json::<MsgSendResponse>()
-            .await?;
-        Ok(response)
-    }
 }
