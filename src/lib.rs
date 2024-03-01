@@ -168,7 +168,7 @@ impl WecomAgent {
             }
         }
 
-        // 发送请求
+        // API地址
         let url = {
             let access_token = self.access_token.read().await;
             format!(
@@ -178,6 +178,8 @@ impl WecomAgent {
                     .expect("Access token should not be None.")
             )
         };
+
+        // 第一次发送
         let response = self
             .client
             .post(&url)
@@ -186,6 +188,24 @@ impl WecomAgent {
             .await?
             .json::<MsgSendResponse>()
             .await?;
+
+        // 微信服务器主动弃用了当前token？
+        if response.error_code() == 40014 {
+            if let Err(e) = self.update_token(10).await {
+                return Err(e);
+            }
+        };
+
+        // 第二次发送
+        let response = self
+            .client
+            .post(&url)
+            .json(&msg)
+            .send()
+            .await?
+            .json::<MsgSendResponse>()
+            .await?;
+
         Ok(response)
     }
 }
