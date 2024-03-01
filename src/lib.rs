@@ -25,6 +25,7 @@
 mod error;
 pub mod message;
 
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -113,13 +114,9 @@ impl WecomAgent {
         let mut access_token = self.access_token.write().await;
 
         // 企业微信服务器对高频的接口调用存在风控措施。因此需要管制接口调用频率。
-        let seconds_since_last_update: u64;
-        {
-            let access_token = self.access_token.read().await;
-            seconds_since_last_update = SystemTime::now()
-                .duration_since(access_token.timestamp())?
-                .as_secs();
-        }
+        let seconds_since_last_update = SystemTime::now()
+            .duration_since(access_token.timestamp())?
+            .as_secs();
         if seconds_since_last_update < backoff_seconds {
             return Err(Box::new(error::Error::new(
                 -9,
@@ -163,9 +160,12 @@ impl WecomAgent {
             access_token.value().is_none() || access_token.expire_in(300) || access_token.expired()
         };
         if token_should_update {
-            if let Err(e) = self.update_token(10).await {
+            warn!("Token invalid. Updating...");
+            let result = self.update_token(10).await;
+            if let Err(e) = result {
                 return Err(e);
             }
+            info!("Token updated");
         }
 
         // API地址
@@ -180,7 +180,8 @@ impl WecomAgent {
         };
 
         // 第一次发送
-        let response = self
+        debug!("Sending [try 1]...");
+        let mut response: MsgSendResponse = self
             .client
             .post(&url)
             .json(&msg)
@@ -191,21 +192,25 @@ impl WecomAgent {
 
         // 微信服务器主动弃用了当前token？
         if response.error_code() == 40014 {
-            if let Err(e) = self.update_token(10).await {
+            warn!("Token invalid. Updating...");
+            let result = self.update_token(10).await;
+            if let Err(e) = result {
                 return Err(e);
             }
+
+            // 第二次发送
+            debug!("Sending [try 2]...");
+            response = self
+                .client
+                .post(&url)
+                .json(&msg)
+                .send()
+                .await?
+                .json::<MsgSendResponse>()
+                .await?;
         };
 
-        // 第二次发送
-        let response = self
-            .client
-            .post(&url)
-            .json(&msg)
-            .send()
-            .await?
-            .json::<MsgSendResponse>()
-            .await?;
-
+        debug!("Sending [Done]");
         Ok(response)
     }
 }
