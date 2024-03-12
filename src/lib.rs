@@ -63,7 +63,9 @@ impl AccessToken {
     /// 凭据将在N秒后过期。注意，若凭据已过期，将返回false。必要时配合`expired()`使用。
     pub fn expire_in(&self, n: u64) -> bool {
         match SystemTime::now().duration_since(self.timestamp) {
-            Ok(duration) => (duration - self.lifetime) < Duration::from_secs(n),
+            Ok(duration_from_last_update) => {
+                duration_from_last_update + Duration::from_secs(n) > self.lifetime
+            }
             Err(_) => false,
         }
     }
