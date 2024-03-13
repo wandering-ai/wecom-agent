@@ -163,10 +163,7 @@ impl WecomAgent {
         };
         if token_should_update {
             warn!("Token invalid. Updating...");
-            let result = self.update_token(10).await;
-            if let Err(e) = result {
-                return Err(e);
-            }
+            self.update_token(10).await?;
             info!("Token updated");
         }
 
@@ -195,10 +192,7 @@ impl WecomAgent {
         // 微信服务器主动弃用了当前token？
         if response.error_code() == 40014 {
             warn!("Token invalid. Updating...");
-            let result = self.update_token(10).await;
-            if let Err(e) = result {
-                return Err(e);
-            }
+            self.update_token(10).await?;
 
             // 第二次发送
             debug!("Sending [try 2]...");
