@@ -216,11 +216,17 @@ impl WecomAgent {
 pub struct MsgSendResponse {
     errcode: i64,
     errmsg: String,
+    #[allow(dead_code)]
     invaliduser: Option<String>,
+    #[allow(dead_code)]
     invalidparty: Option<String>,
+    #[allow(dead_code)]
     invalidtag: Option<String>,
+    #[allow(dead_code)]
     unlicenseduser: Option<String>,
+    #[allow(dead_code)]
     msgid: String,
+    #[allow(dead_code)]
     response_code: Option<String>,
 }
 
