@@ -225,7 +225,7 @@ pub struct MsgSendResponse {
     #[allow(dead_code)]
     unlicenseduser: Option<String>,
     #[allow(dead_code)]
-    msgid: String,
+    msgid: Option<String>,
     #[allow(dead_code)]
     response_code: Option<String>,
 }

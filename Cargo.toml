@@ -1,6 +1,6 @@
 [package]
 name = "wecom-agent"
-version = "0.1.15"
+version = "0.1.16"
 edition = "2021"
 description = "企业微信API的轻封装，让消息发送更加便捷。"
 license = "MIT OR Apache-2.0"
